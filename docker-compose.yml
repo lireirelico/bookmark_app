@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    platform: linux/arm64/v8
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: password
+      POSTGRES_USER: postgres
+      POSTGRES_DB: bookmark_app_development
+    ports:
+      - "5432:5432"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+      platforms:
+        - linux/arm64/v8
+    volumes:
+      - ./bookmark-backend:/app
+      - /app/tmp/cache
+      - /app/public/assets
+    environment:
+      DATABASE_URL: postgresql://postgres:password@db:5432/bookmark_app_development
+      RAILS_ENV: development
+      POSTGRES_PASSWORD: password
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
+      platforms:
+        - linux/arm64/v8
+    volumes:
+      - ./bookmark-frontend:/app
+      - /app/node_modules
+    ports:
+      - "3001:3000"
+    environment:
+      - VITE_API_URL=http://localhost:3000/graphql
+      - PORT=3000
+      - WDS_SOCKET_PORT=3001
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres_data: 

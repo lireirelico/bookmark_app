@@ -1,0 +1,45 @@
+services:
+  frontend:
+    build: 
+      context: ../bookmark-frontend
+      dockerfile: ../docker/Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../bookmark-frontend:/app
+      - /app/node_modules
+    environment:
+      - REACT_APP_API_URL=http://backend:3001
+    depends_on:
+      - backend
+
+  backend:
+    image: ruby:3.2.2
+    working_dir: /app
+    volumes:
+      - ../bookmark-backend:/app
+    ports:
+      - "3001:3001"
+    environment:
+      - RAILS_ENV=development
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/bookmarks_development
+    command: >
+      bash -c "bundle install &&
+               bundle exec rails db:create db:migrate &&
+               bundle exec rails s -p 3001 -b '0.0.0.0'"
+    depends_on:
+      - db
+
+  db:
+    image: postgres:15
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=bookmarks_development
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5432:5432"
+
+volumes:
+  postgres_data: 
